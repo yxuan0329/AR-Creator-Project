@@ -6,12 +6,14 @@ Created on Wed Dec  7 20:23:34 2022
 """
 
 import cv2
+import keyboard
 from cvzone.HandTrackingModule import HandDetector
 # import socket
 
 # parameter
 WIDTH, HEIGHT = 640, 360 # 1280, 720
 selection = -1
+counter = 0
     
 
 
@@ -38,7 +40,7 @@ def get_frame(cap):
     # sock.sendto(str.encode(str(data)), serverAddressPort)
         
     showUI(img)
-    click_btn(fingers, img, selection)
+    click_btn(fingers, img)
     
     cv2.imshow("Image", img)
     cv2.waitKey(1)
@@ -49,17 +51,20 @@ def showUI(img):
     cv2.ellipse(img, (80, 170), (20, 20), 0, 0, 360, (0, 255, 255), -1)
     cv2.ellipse(img, (80, 230), (20, 20), 0, 0, 360, (0, 255, 255), -1)
 
-def click_btn(fingers, img, selection):
-    if fingers == [0, 1, 0, 0, 0]:
+def click_btn(fingers, img):
+    global selection, counter
+    counterspeed = 5
+    if fingers == [0, 1, 0, 0, 0]: # point "1"
         if selection != 1:
             counter = 1
         selection = 1
     else:
         selection = -1
         counter = 0
-    if counter >0:
+    if counter > 0 and counter * counterspeed <= 360:
         counter += 1
-        cv2.ellipse(img, (80, 50), (20, 20), 0, 0, counter, (0, 255, 0), 10)
+        print (counter, selection)
+        cv2.ellipse(img, (80, 50), (20, 20), 0, 0, counter * counterspeed, (0, 255, 0), 10)
 
 
 if __name__ == '__main__':
@@ -74,7 +79,7 @@ if __name__ == '__main__':
     # communication
     # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     # serverAddressPort = ("127.0.0.1", 5052)
-    
+    selection = -1
     while True:
         get_frame(cap)
     
