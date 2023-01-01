@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Dec  7 20:23:34 2022
-
-@author: xuan
-"""
-
+import numpy as np
 import cv2
 import keyboard
+import math
 from cvzone.HandTrackingModule import HandDetector
-<<<<<<< Updated upstream
-# import socket
-=======
 
+# color table 
+orange = (0, 69, 255)
+light_green = (144, 238, 144)
+purple = (128, 0, 128)
+pink = (203, 192, 255)
 
 class Btn: # the UI button
     def __init__(self, x, y):
@@ -37,31 +35,21 @@ class Clay:
         self.radius = 40
         self.coords = coords
         self.color = color
-    def draw(self, background, coords):
+    def draw(self, background, coords, color):
         if coords == []:
             return
-        first_coord = []
-        curr_coord = []
+        points = np.array( [[200, 250]] )
         for coord in coords:
-            coord[0] = int(coord[0]) # change float to integer for drawing
-            coord[1] = int(coord[1])
-            cv2.circle(background, (coord[0], coord[1]), 2, (0, 0, 127), -1)
-            if first_coord == []: # store the first coords
-                first_coord.append(coord[0])
-                first_coord.append(coord[1])
-            else:
-                cv2.line(background, (curr_coord[0], curr_coord[1]), (coord[0], coord[1]), 2, cv2.LINE_AA)
-            curr_coord = [coord[0], coord[1]]
-        cv2.line(background, (curr_coord[0], curr_coord[1]), (first_coord[0], first_coord[1]), 2, cv2.LINE_AA)
+            points = np.append(points, [[int(coord[0]), int(coord[1])]], 0 )        
+        cv2.fillConvexPoly(background, points, color)
         
->>>>>>> Stashed changes
 
 # parameter
 WIDTH, HEIGHT = 640, 360 # 1280, 720
 selection = -1
+select_mode = -1
 counter = 0
-<<<<<<< Updated upstream
-=======
+object_display = False
 
 
 btn0 = Btn(120, 50)
@@ -69,74 +57,87 @@ btn1 = Btn(200, 50)
 btn2 = Btn(280, 50)
 btn3 = Btn(360, 50)
 btn_list = [btn0, btn1, btn2, btn3]
-c = []
-clay = Clay(200, 250, c, (0, 255, 0))
+clay = Clay(200, 250, [], pink)
 
 def drawUI(img):
     for btn in btn_list:
         btn.draw(img)
->>>>>>> Stashed changes
     
-
 
 def get_frame(cap):
-    # get the frame from webcam
-    success, img = cap.read()
+    success, img = cap.read() # get the frame from webcam
     fingers = [0,0,0,0,0]
-    # hands
     hands, img = detector.findHands(img)
     
+    drawUI(img)
+    
+    global object_display
     data = []
     lmList = []
+    # gray_img = spotlight(img, data, fingers)
     
     # landmark values - (x, y, z) * 21
-    #if hands:
     for hand in hands:        
         lmList = hand['lmList']
         for lm in lmList:
-            data.extend([lm[0], HEIGHT - lm[1], lm[2]]) # reverse y-dir
+            data.extend([lm[0], lm[1], lm[2]]) # reverse y-dir
                 
         fingers = detector.fingersUp(hand) # [1, 1, 1, 1, 1] if fingers up
         print(fingers)
-<<<<<<< Updated upstream
-    # print(len(data))
-    # sock.sendto(str.encode(str(data)), serverAddressPort)
-        
-    showUI(img)
-    click_btn(fingers, img)
-=======
         # print(len(data))
         select_mode = detect_click_btn(img, data, fingers)
         if select_mode == 0:
             clay.coords = generate_points(clay)
-            clay.draw(img, clay.coords)
->>>>>>> Stashed changes
+            object_display = True
+        elif select_mode == 1:
+            candle(img, data, fingers)
+            new_img = spotlight(img, data, fingers)
+            img = new_img
+        
+    if object_display == True:
+        clay.draw(img, clay.coords, clay.color)
     
     cv2.imshow("Image", img)
     cv2.waitKey(1)
 
-def showUI(img):
-    cv2.ellipse(img, (80, 50), (20, 20), 0, 0, 360, (0, 255, 255), -1)
-    cv2.ellipse(img, (80, 110), (20, 20), 0, 0, 360, (0, 255, 255), -1)
-    cv2.ellipse(img, (80, 170), (20, 20), 0, 0, 360, (0, 255, 255), -1)
-    cv2.ellipse(img, (80, 230), (20, 20), 0, 0, 360, (0, 255, 255), -1)
+def distance(a, b):
+    dis = pow((a.x - b.x), 2) + pow(a.y - b.y, 2)
+    dis = math.sqrt(dis)
+    return dis
 
-def click_btn(fingers, img):
-    global selection, counter
-    counterspeed = 5
-    if fingers == [0, 1, 0, 0, 0]: # point "1"
-        if selection != 1:
+def detect_click_btn(img, data, fingers):
+    global selection, select_mode, counter
+    counterspeed = 8
+    index_finger_tip = FingerTip(int(data[24]), int(data[25]))
+
+    if fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[0]) <= btn_list[0].radius: 
+        if selection != 0: # ENTER SELECTION 0
+            counter = 1
+        selection = 0
+        # print("selection = 0")
+    elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[1]) <= btn_list[1].radius :
+        if selection != 1: # ENTER SELECTION 1
             counter = 1
         selection = 1
-    else:
+        # print("selection = 1")
+    elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[2]) <= btn_list[2].radius : 
+        if selection != 2: # ENTER SELECTION 2
+            counter = 1
+        selection = 2
+        # print("selection = 2")
+    elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[3]) <= btn_list[3].radius : 
+        if selection != 3: # ENTER SELECTION 3
+            counter = 1
+        selection = 3
+        # print("selection = 3")
+    else: # QUIT SELECTON
         selection = -1
         counter = 0
-    if counter > 0 and counter * counterspeed <= 360:
+        # print("quit selection")
+        
+    if counter > 0: 
         counter += 1
         print (counter, selection)
-<<<<<<< Updated upstream
-        cv2.ellipse(img, (80, 50), (20, 20), 0, 0, counter * counterspeed, (0, 255, 0), 10)
-=======
         cv2.ellipse(img, (btn_list[selection].x, btn_list[selection].y), (btn_list[selection].radius, btn_list[selection].radius), 0, 0, counter * counterspeed, (0, 255, 0), 10)
         if counter * counterspeed >= 360:
             select_mode = selection
@@ -154,23 +155,43 @@ def generate_points(clay):
         y = clay.y + math.cos(theta) * clay.radius
         coords.append([x, y])
     return coords
->>>>>>> Stashed changes
 
+def candle(img, data, fingers):
+    if fingers == [1, 0, 0, 0, 0]:
+        thumb = FingerTip(int(data[12]), int(data[13]))
+        cv2.circle(img, (thumb.x, thumb.y), 10, orange, -1)
+   
+def in_circle(a, b, radius):
+    """ return true if the pixel is inside the circle boundary """
+    res = (a.x - b.x) ** 2 + (a.y - b.y) ** 2 - radius ** 2
+    return True  if (res <=0) else False
+    
+
+def spotlight(img, data, fingers):
+    h, w, _ = img.shape
+    radius = 50
+    
+    if fingers == [1, 0, 0, 0, 0]:
+        red_img = cv2.applyColorMap(img, cv2.COLORMAP_HOT)
+        thumb = FingerTip(int(data[12]), int(data[13]))
+        for j in range(0, h):
+            for i in range(0, w):
+                pixel = FingerTip(i, j)
+                if in_circle(pixel, thumb, radius):
+                    intensity = 1 - distance(pixel, thumb) * 0.02
+                    # img[j][i] = (img[j][i][2] * 0.299 + img[j][i][1] * 0.587 + img[j][i][0] * 0.114)  # grayscale RGB = 299, 587, 114   
+                    img[j][i] = red_img[j][i]
+    return img
 
 if __name__ == '__main__':
-    # remember to open your webcam from laptop
     cap = cv2.VideoCapture(0) # device number = 0
     cap.set(3, WIDTH) # width 
     cap.set(4, HEIGHT) # height
     
-    # hand detect
-    detector = HandDetector(maxHands=2, detectionCon=0.8)
-    
-    # communication
-    # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # serverAddressPort = ("127.0.0.1", 5052)
+    detector = HandDetector(maxHands=2, detectionCon=0.8) # hand detect
     selection = -1
+
     while True:
         get_frame(cap)
-    
+            
     cv2.destroyAllWindows()
