@@ -66,7 +66,8 @@ btn_list = [btn0, btn1, btn2, btn3]
 #clay = Clay(200, 250, [], pink)
 
 zeroModePress = False
-zerModeDragPoint = []
+zeroModePointToVertex = False
+zeroModeDragPoint = []
 
 def drawUI(img):
     for btn in btn_list:
@@ -84,7 +85,7 @@ def get_frame(cap):
     drawUI(img)
     
     global object_display
-    global zerModeDragPoint
+    global zeroModeDragPoint
     data = []
     lmList = []
     # gray_img = spotlight(img, data, fingers)
@@ -97,6 +98,7 @@ def get_frame(cap):
                 
         fingers = detector.fingersUp(hand) # [1, 1, 1, 1, 1] if fingers up
         #print(fingers)
+
         # print(len(data))
         select_mode = detect_click_btn(img, data, fingers)
         if select_mode == 0:
@@ -114,22 +116,21 @@ def get_frame(cap):
             twoFingerMode(lmList, img)
             showButtonNumber(btn2, "2", img)
         elif select_mode == 3:
-            showButtonNumber(btn2, "3", img)
+            showButtonNumber(btn3, "3", img)
 
         
     if object_display == True:
         for clay in clays:
             clay.draw(img, clay.color)
-            #global zeroModeDragPoint
-            #print(zerModeDragPoint)
-            print(zerModeDragPoint)
 
-        if zerModeDragPoint != []:
-            clayID = zerModeDragPoint[0]
-            pointID = zerModeDragPoint[1]
-            cv2.circle(img, clays[clayID].coords[pointID], 5, (255, 0, 0), cv2.FILLED)
-
-        #for point in zerModeDragPoint:
+        if zeroModeDragPoint != []:
+            clayID = zeroModeDragPoint[0]
+            pointID = zeroModeDragPoint[1]
+            if zeroModeDragPoint[2]:
+                color = (0, 0, 255)
+            else :
+                color = (255, 0, 0)
+            cv2.circle(img, clays[clayID].coords[pointID], 5, color, cv2.FILLED)
 
     cv2.imshow("Image", img)
     cv2.waitKey(1)
@@ -237,35 +238,53 @@ def showButtonNumber(Btn, number, img):
 def zeroMode(lmList, img):
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
     middleFinger = FingerTip(lmList[12][0], lmList[12][1])
-    length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
     global zeroModePress
+    global zeroModePointToVertex
     global zeroModeDragPoint
-    zeroModeDragPoint = -1
-
-    if length < 20:
-        if zeroModePress == False:
-            zeroModePress = True
-            if middleFinger.x >= WIDTH:
-                middleFinger.x = WIDTH - 1
-            if middleFinger.y >= HEIGHT:
-                middleFinger.y = HEIGHT - 1
-            clay_new = Clay(middleFinger.x, middleFinger.y, pink)
-            clays.append(clay_new)
-    elif zeroModePress == True:
-        zeroModePress = False
-    else :
-        cv2.circle(img, (middleFinger.x, middleFinger.y), 10, pink, cv2.FILLED)
-
+    # find the vertex that is close to index finger tip
     clayID = 0
     for clay in clays:
-        for i in range(0, 60, 10):
-            point_center = clay.coords[i]
-            length, _ = detector.findDistance(point_center, (indexFinger.x, indexFinger.y))
-            if length < 25:
-                global  zerModeDragPoint
-                zerModeDragPoint = [clayID, i]
-                #cv2.circle(img, point_center, 5, (255, 0, 0), cv2.FILLED)
+        clip, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
+        if zeroModePointToVertex == True:
+            clayID = zeroModeDragPoint[0]
+            pointID = zeroModeDragPoint[1]
+            clays[clayID].coords[pointID] = (indexFinger.x, indexFinger.y)
+            if clip > 40:
+                zeroModePointToVertex = False
+            break
+        else:
+            #zeroModeDragPoint = []
+            for i in range(0, 60, 10):
+                point_center = clay.coords[i]
+                length, _ = detector.findDistance(point_center, (indexFinger.x, indexFinger.y))
+                if length < 25:
+                    if clip < 25:
+                        zeroModePointToVertex = True
+                        zeroModeDragPoint = [clayID, i, True]
+                    else:
+                        zeroModeDragPoint = [clayID, i, False]
+
         clayID += 1
+
+    if zeroModePointToVertex == False:
+        length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
+        # If index finger is not on vertex, clip to create new clay
+        if length < 20:  # if index and middle finger together
+            if zeroModePress == False:
+                zeroModePress = True  # Works like press the button
+                if middleFinger.x >= WIDTH:
+                    middleFinger.x = WIDTH - 1
+                if middleFinger.y >= HEIGHT:
+                    middleFinger.y = HEIGHT - 1
+                clay_new = Clay(middleFinger.x, middleFinger.y, pink)
+                clays.append(clay_new)
+        elif zeroModePress == True:  # Works like release
+            zeroModePress = False
+        else:
+            cv2.circle(img, (middleFinger.x, middleFinger.y), 10, pink, cv2.FILLED)
+
+
+
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0) # device number = 0
     cap.set(3, WIDTH) # width 
