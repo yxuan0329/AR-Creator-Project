@@ -49,12 +49,6 @@ class Clay:
         self.coords = generate_points(self)
         self.color = color
     def draw(self, background, color):
-        """
-        rightPoint = (self.x + self.radius if self.x + self.radius <= WIDTH - 1 else WIDTH - 1, self.y)
-        leftPoint = (self.x - self.radius if self.x - self.radius > 0 else 0, self.y)
-        topPoint = (self.x , self.y - self.radius if self.y - self.radius > 0 else 0)
-        buttomPoint = (self.x , self.y + self.radius if self.y + self.radius <= HEIGHT - 1 else HEIGHT - 1)
-        """
         if self.coords == []:
             self.coords = generate_points(self)
         points = np.array(self.coords)
@@ -77,8 +71,8 @@ btn3 = Btn(360, 50)
 btn_list = [btn0, btn1, btn2, btn3]
 
 zeroModePress = False
-zeroModePointToVertex = False
-zeroModeDragPoint = []
+secondModePointToVertex = False
+secondModeDragPoint = []
 
 colorIndex = 0
 secondModeisClip = 0 # 0: not clip / 1: clipping / 2: release
@@ -103,7 +97,7 @@ def get_frame(cap):
     drawUI(img)
     
     global object_display
-    global zeroModeDragPoint
+    global secondModeDragPoint
     data = []
     lmList = []
     
@@ -141,21 +135,30 @@ def get_frame(cap):
             clay.draw(img, clay.color)
             
             if len(hands) == 2 and detector.fingersUp(hands[0]) == [1,1,0,0,0] and detector.fingersUp(hands[1]) == [1,1,0,0,0] :
-                    scale_obj(hands, clay)
+                scale_obj(hands, clay)
             else:
                 global start_dist
                 start_dist = 0
             
 
-        if zeroModeDragPoint != []:
-            clayID = zeroModeDragPoint[0]
-            pointID = zeroModeDragPoint[1]
-            if zeroModeDragPoint[2]:
-                color = (0, 0, 255)
-            else :
-                color = (255, 0, 0)
-            cv2.circle(img, clays[clayID].coords[pointID], 5, color, cv2.FILLED)
-            
+
+        if secondModeDragPoint != []:
+            clayID = secondModeDragPoint[0]
+            pointID = secondModeDragPoint[1]
+            if pointID == -1:
+                if secondModeDragPoint[2]:
+                    color = (50, 50, 50)
+                else:
+                    color = (255, 255, 255)
+                cv2.circle(img, (clays[clayID].x, clays[clayID].y), 5, color, cv2.FILLED)
+            else:
+                global colorIndex
+                if secondModeDragPoint[2]:
+                    color = (0, 0, 255) if clay.color != (0, 0, 255) else (0, 255, 255)
+                else:
+                    color = (255, 0, 0) if clay.color != (255, 0, 0) else (0, 255, 0)
+                cv2.circle(img, clays[clayID].coords[pointID], 5, color, cv2.FILLED)
+
     cv2.imshow("Image", img)
     cv2.waitKey(1)
 
@@ -276,39 +279,10 @@ def showButtonNumber(Btn, number, color, img):
 def zeroMode(lmList, img):
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
     middleFinger = FingerTip(lmList[12][0], lmList[12][1])
-    """
-    global zeroModePress
-    global zeroModePointToVertex
-    global zeroModeDragPoint
-    # find the vertex that is close to index finger tip
-    clayID = 0
-    for clay in clays:
-        clip, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
-        if zeroModePointToVertex == True:
-            clayID = zeroModeDragPoint[0]
-            pointID = zeroModeDragPoint[1]
-            clays[clayID].coords[pointID] = (indexFinger.x, indexFinger.y)
-            if clip > 40:
-                zeroModePointToVertex = False
-            break
-        else:
-            #zeroModeDragPoint = []
-            for i in range(0, 60, 10):
-                point_center = clay.coords[i]
-                length, _ = detector.findDistance(point_center, (indexFinger.x, indexFinger.y))
-                if length < 25:
-                    if clip < 25:
-                        zeroModePointToVertex = True
-                        zeroModeDragPoint = [clayID, i, True]
-                    else:
-                        zeroModeDragPoint = [clayID, i, False]
 
-        clayID += 1
-    """
     global colorTable
     global colorIndex
     global zeroModePress
-    #if zeroModePointToVertex == False:
     length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
     # If index finger is not on vertex, clip to create new clay
     if length < 20:  # if index and middle finger together
@@ -329,30 +303,55 @@ def zeroMode(lmList, img):
 def secondMode(lmList, img):
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
     middleFinger = FingerTip(lmList[12][0], lmList[12][1])
-    global zeroModePointToVertex
-    global zeroModeDragPoint
+    global secondModePointToVertex
+    global secondModeDragPoint
     # find the vertex that is close to index finger tip
     clayID = 0
     for clay in clays:
         clip, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
-        if zeroModePointToVertex == True:
-            clayID = zeroModeDragPoint[0]
-            pointID = zeroModeDragPoint[1]
-            clays[clayID].coords[pointID] = (indexFinger.x, indexFinger.y)
-            if clip > 40:
-                zeroModePointToVertex = False
-            break
+        if secondModePointToVertex == True:
+            clayID = secondModeDragPoint[0]
+            pointID = secondModeDragPoint[1]
+            if pointID == -1:
+                if clip > 40:
+                    secondModePointToVertex = False
+                    break
+                else:
+                    for i in range(60):
+                        as_list = list(clays[clayID].coords[i])
+                        as_list[0] += int(indexFinger.x - clays[clayID].x)
+                        as_list[1] += int(indexFinger.y - clays[clayID].y)
+                        clays[clayID].coords[i] = tuple(as_list)
+                    clays[clayID].x = indexFinger.x
+                    clays[clayID].y = indexFinger.y
+
+            else:
+                if clip > 40:
+                    secondModePointToVertex = False
+                    break
+                else:
+                    clays[clayID].coords[pointID] = (indexFinger.x, indexFinger.y)
+
         else:
-            # zeroModeDragPoint = []
-            for i in range(0, 60, 10):
-                point_center = clay.coords[i]
-                length, _ = detector.findDistance(point_center, (indexFinger.x, indexFinger.y))
-                if length < 25:
-                    if clip < 25:
-                        zeroModePointToVertex = True
-                        zeroModeDragPoint = [clayID, i, True]
-                    else:
-                        zeroModeDragPoint = [clayID, i, False]
+            center_length, _ = detector.findDistance((clay.x, clay.y), (indexFinger.x, indexFinger.y))
+            if center_length < 25:
+                if clip < 25:
+                    secondModePointToVertex = True
+                    secondModeDragPoint = [clayID, -1, True]
+                    break
+                else:
+                    secondModeDragPoint = [clayID, -1, False]
+            else:
+                for i in range(0, 60, 10):
+                    point_center = clay.coords[i]
+                    length, _ = detector.findDistance(point_center, (indexFinger.x, indexFinger.y))
+                    if length < 25:
+                        if clip < 25:
+                            secondModePointToVertex = True
+                            secondModeDragPoint = [clayID, i, True]
+                            break
+                        else:
+                            secondModeDragPoint = [clayID, i, False]
 
         clayID += 1
 
