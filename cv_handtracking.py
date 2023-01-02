@@ -8,21 +8,21 @@ from cvzone.HandTrackingModule import HandDetector
 # color table
 red = (0, 0, 255)
 orange = (0, 69, 255)
-yellow = (0, 255, 255)
-light_green = (144, 238, 144)
-green = (0, 255, 0)
-blue = (255, 0, 0)
+yellow = (143, 246, 255)
+light_goldenrod = (76, 129, 139)
+green = (84, 139, 84)
+blue = (180, 130, 70)
 purple = (128, 0, 128)
 pink = (203, 192, 255)
 black = (50, 50, 50)
-colorTable =[red, orange, yellow, light_green, green, blue, purple, pink]
+colorTable =[red, orange, yellow, light_goldenrod, green, blue, purple, pink]
 
 class Btn: # the UI button
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.radius = 30
-        self.color = (0, 255, 255)
+        self.color = colorTable[2]
         
     def draw(self, background):
         cv2.ellipse(background, (self.x, self.y), (self.radius, self.radius), 0, 0, 360, self.color, -1)
@@ -68,7 +68,8 @@ btn0 = Btn(120, 50)
 btn1 = Btn(200, 50)
 btn2 = Btn(280, 50)
 btn3 = Btn(360, 50)
-btn_list = [btn0, btn1, btn2, btn3]
+btn4 = Btn(440, 50)
+btn_list = [btn0, btn1, btn2, btn3, btn4]
 
 zeroModePress = False
 secondModePointToVertex = False
@@ -84,6 +85,7 @@ def drawUI(img):
     showButtonNumber(btn1, "1", black, img)
     showButtonNumber(btn2, "2", black, img)
     showButtonNumber(btn3, "3", black, img)
+    showButtonNumber(btn4, "4", black, img)
     
 
 def get_frame(cap):
@@ -119,8 +121,7 @@ def get_frame(cap):
 
         elif select_mode == 1:
             candle(img, data, fingers)
-            new_img = spotlight(img, data, fingers)
-            img = new_img
+            img = spotlight(img, data, fingers)
             showButtonNumber(btn1, "1", colorTable[0], img)
         elif select_mode == 2:
             #twoFingerMode(lmList, img)
@@ -129,6 +130,9 @@ def get_frame(cap):
         elif select_mode == 3:
             showButtonNumber(btn3, "3", colorTable[0], img)
             thirdMode(lmList, img)
+        elif select_mode == 4:
+            showButtonNumber(btn4, "4", colorTable[0], img)
+            img = change_filter(img, fingers)
         
     if object_display == True:
         for clay in clays:
@@ -188,14 +192,18 @@ def detect_click_btn(img, data, fingers):
         if selection != 3: # ENTER SELECTION 3
             counter = 1
         selection = 3
+    elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[4]) <= btn_list[4].radius : 
+        if selection != 4: # ENTER SELECTION 4
+            counter = 1
+        selection = 4
     else: # QUIT SELECTON
         # selection = -1 ##comment out in order to show button number
         counter = 0
         
     if counter > 0: 
         counter += 1
-        print(counter, selection)
-        cv2.ellipse(img, (btn_list[selection].x, btn_list[selection].y), (btn_list[selection].radius, btn_list[selection].radius), 0, 0, counter * counterspeed, (0, 255, 0), 10)
+        # print(counter, selection)
+        cv2.ellipse(img, (btn_list[selection].x, btn_list[selection].y), (btn_list[selection].radius, btn_list[selection].radius), 0, 0, counter * counterspeed, colorTable[3], 10)
         if counter * counterspeed >= 360:
             select_mode = selection
             print("enter mode " + str(selection))
@@ -254,9 +262,16 @@ def spotlight(img, data, fingers):
             for i in range(0, w):
                 pixel = FingerTip(i, j)
                 if in_circle(pixel, thumb, radius):
-                    intensity = 1 - distance(pixel, thumb) * 0.02
+                    # intensity = 1 - distance(pixel, thumb) * 0.02
                     # img[j][i] = (img[j][i][2] * 0.299 + img[j][i][1] * 0.587 + img[j][i][0] * 0.114)  # grayscale RGB = 299, 587, 114   
                     img[j][i] = red_img[j][i]
+    return img
+
+def change_filter(img, fingers):
+    if fingers == [0, 1, 1, 0, 0]:
+        img = cv2.applyColorMap(img, cv2.COLORMAP_OCEAN)
+    elif fingers == [0, 1, 1, 1, 0]:
+         img = cv2.applyColorMap(img, cv2.COLORMAP_DEEPGREEN)
     return img
 
 def twoFingerMode(lmList, img):
