@@ -86,16 +86,24 @@ def get_frame(cap):
             data.extend([lm[0], lm[1], lm[2]]) # reverse y-dir
                 
         fingers = detector.fingersUp(hand) # [1, 1, 1, 1, 1] if fingers up
-        print(fingers)
+        #print(fingers)
         # print(len(data))
         select_mode = detect_click_btn(img, data, fingers)
         if select_mode == 0:
             clay.coords = generate_points(clay)
             object_display = True
+            showButtonNumber(btn0, "0", img)
         elif select_mode == 1:
             candle(img, data, fingers)
             new_img = spotlight(img, data, fingers)
             img = new_img
+            showButtonNumber(btn1, "1", img)
+        elif select_mode == 2:
+            twoFingerMode(lmList, img)
+            showButtonNumber(btn2, "2", img)
+        elif select_mode == 3:
+            showButtonNumber(btn2, "3", img)
+
         
     if object_display == True:
         clay.draw(img, clay.coords, clay.color)
@@ -185,6 +193,23 @@ def spotlight(img, data, fingers):
                     # img[j][i] = (img[j][i][2] * 0.299 + img[j][i][1] * 0.587 + img[j][i][0] * 0.114)  # grayscale RGB = 299, 587, 114   
                     img[j][i] = red_img[j][i]
     return img
+
+def twoFingerMode(lmList, img):
+    indexFinger = FingerTip(lmList[8][0], lmList[8][1])
+    middleFinger= FingerTip(lmList[12][0], lmList[12][1])
+    length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
+    if length < 25:
+        if middleFinger.x >= WIDTH:
+            middleFinger.x = WIDTH - 1
+        if middleFinger.y >= HEIGHT:
+            middleFinger.y = HEIGHT - 1
+
+        click_pos = (middleFinger.y, middleFinger.x)
+        cv2.circle(img, (middleFinger.x, middleFinger.y), 10, (255,0,0), cv2.FILLED)
+        return click_pos
+
+def showButtonNumber(Btn, number, img):
+    cv2.putText(img, number, (Btn.x -10, Btn.y + 10), cv2.FONT_HERSHEY_PLAIN, 2, (50, 50, 50), 3)
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0) # device number = 0
