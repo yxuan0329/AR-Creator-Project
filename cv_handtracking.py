@@ -132,7 +132,7 @@ def get_frame(cap):
             showButtonNumber(btn2, "2", img)
         elif select_mode == 3:
             showButtonNumber(btn3, "3", img)
-
+            thirdMode(lmList, img)
         
     if object_display == True:
         for clay in clays:
@@ -253,6 +253,7 @@ def showButtonNumber(Btn, number, img):
 def zeroMode(lmList, img):
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
     middleFinger = FingerTip(lmList[12][0], lmList[12][1])
+    """
     global zeroModePress
     global zeroModePointToVertex
     global zeroModeDragPoint
@@ -280,27 +281,59 @@ def zeroMode(lmList, img):
                         zeroModeDragPoint = [clayID, i, False]
 
         clayID += 1
+    """
     global colorTable
     global colorIndex
-    if zeroModePointToVertex == False:
-        length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
-        # If index finger is not on vertex, clip to create new clay
-        if length < 20:  # if index and middle finger together
-            if zeroModePress == False:
-                zeroModePress = True  # Works like press the button
-                if middleFinger.x >= WIDTH:
-                    middleFinger.x = WIDTH - 1
-                if middleFinger.y >= HEIGHT:
-                    middleFinger.y = HEIGHT - 1
+    global zeroModePress
+    #if zeroModePointToVertex == False:
+    length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
+    # If index finger is not on vertex, clip to create new clay
+    if length < 20:  # if index and middle finger together
+        if zeroModePress == False:
+            zeroModePress = True  # Works like press the button
+            if middleFinger.x >= WIDTH:
+                middleFinger.x = WIDTH - 1
+            if middleFinger.y >= HEIGHT:
+                middleFinger.y = HEIGHT - 1
 
-                clay_new = Clay(middleFinger.x, middleFinger.y, colorTable[colorIndex])
-                clays.append(clay_new)
-        elif zeroModePress == True:  # Works like release
-            zeroModePress = False
+            clay_new = Clay(middleFinger.x, middleFinger.y, colorTable[colorIndex])
+            clays.append(clay_new)
+    elif zeroModePress == True:  # Works like release
+        zeroModePress = False
+    else:
+        cv2.circle(img, (middleFinger.x, middleFinger.y), 10, colorTable[colorIndex], cv2.FILLED)
+
+def secondMode(lmList, img):
+    indexFinger = FingerTip(lmList[8][0], lmList[8][1])
+    middleFinger = FingerTip(lmList[12][0], lmList[12][1])
+    global zeroModePointToVertex
+    global zeroModeDragPoint
+    # find the vertex that is close to index finger tip
+    clayID = 0
+    for clay in clays:
+        clip, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
+        if zeroModePointToVertex == True:
+            clayID = zeroModeDragPoint[0]
+            pointID = zeroModeDragPoint[1]
+            clays[clayID].coords[pointID] = (indexFinger.x, indexFinger.y)
+            if clip > 40:
+                zeroModePointToVertex = False
+            break
         else:
-            cv2.circle(img, (middleFinger.x, middleFinger.y), 10, colorTable[colorIndex], cv2.FILLED)
+            # zeroModeDragPoint = []
+            for i in range(0, 60, 10):
+                point_center = clay.coords[i]
+                length, _ = detector.findDistance(point_center, (indexFinger.x, indexFinger.y))
+                if length < 25:
+                    if clip < 25:
+                        zeroModePointToVertex = True
+                        zeroModeDragPoint = [clayID, i, True]
+                    else:
+                        zeroModeDragPoint = [clayID, i, False]
 
-def secondMode(lmList, img): # change color by clipping
+        clayID += 1
+
+def thirdMode(lmList, img): # change color by clipping
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
     middleFinger = FingerTip(lmList[12][0], lmList[12][1])
 
