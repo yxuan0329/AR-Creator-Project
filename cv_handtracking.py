@@ -5,11 +5,16 @@ import keyboard
 import math
 from cvzone.HandTrackingModule import HandDetector
 
-# color table 
+# color table
+red = (0, 0, 255)
 orange = (0, 69, 255)
+yellow = (0, 255, 255)
 light_green = (144, 238, 144)
+green = (0, 255, 0)
+blue = (255, 0, 0)
 purple = (128, 0, 128)
 pink = (203, 192, 255)
+colorTable =[red, orange, yellow, light_green, green, blue, purple, pink]
 
 class Btn: # the UI button
     def __init__(self, x, y):
@@ -20,6 +25,14 @@ class Btn: # the UI button
         
     def draw(self, background):
         cv2.ellipse(background, (self.x, self.y), (self.radius, self.radius), 0, 0, 360, self.color, -1)
+        """
+        overlay = background.copy()
+        cv2.ellipse(overlay, (self.x, self.y), (self.radius, self.radius), 0, 0, 360, self.color, -1)
+        alpha = 0.4
+        image_new = cv2.addWeighted(overlay, alpha, background, 1 - alpha, 0)
+        background = image_new
+        """
+
 
 class FingerTip: # the position of the finger tip (thumb, index_finger, middle_finger, ring_finger, pinky)
     def __init__(self, x, y):
@@ -46,7 +59,7 @@ class Clay:
         points = np.array(self.coords)
         #for coord in self.coords:
         #    points = np.append(points, [[int(coord[0]), int(coord[1])]], 0 )
-        cv2.fillConvexPoly(background, points, color)
+        cv2.fillConvexPoly(background, points, self.color)
 
 
 
@@ -63,11 +76,13 @@ btn1 = Btn(200, 50)
 btn2 = Btn(280, 50)
 btn3 = Btn(360, 50)
 btn_list = [btn0, btn1, btn2, btn3]
-#clay = Clay(200, 250, [], pink)
 
 zeroModePress = False
 zeroModePointToVertex = False
 zeroModeDragPoint = []
+
+colorIndex = 0
+secondModeisClip = 0 # 0: not clip / 1: clipping / 2: release
 
 def drawUI(img):
     for btn in btn_list:
@@ -102,7 +117,6 @@ def get_frame(cap):
         # print(len(data))
         select_mode = detect_click_btn(img, data, fingers)
         if select_mode == 0:
-            #clay.coords = generate_points(clay)
             object_display = True
             showButtonNumber(btn0, "0", img)
             zeroMode(lmList, img)
@@ -113,7 +127,8 @@ def get_frame(cap):
             img = new_img
             showButtonNumber(btn1, "1", img)
         elif select_mode == 2:
-            twoFingerMode(lmList, img)
+            #twoFingerMode(lmList, img)
+            secondMode(lmList, img)
             showButtonNumber(btn2, "2", img)
         elif select_mode == 3:
             showButtonNumber(btn3, "3", img)
@@ -145,7 +160,7 @@ def detect_click_btn(img, data, fingers):
     counterspeed = 8
     index_finger_tip = FingerTip(int(data[24]), int(data[25]))
 
-    if fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[0]) <= btn_list[0].radius: 
+    if fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[0]) <= btn_list[0].radius:
         if selection != 0: # ENTER SELECTION 0
             counter = 1
         selection = 0
@@ -265,7 +280,8 @@ def zeroMode(lmList, img):
                         zeroModeDragPoint = [clayID, i, False]
 
         clayID += 1
-
+    global colorTable
+    global colorIndex
     if zeroModePointToVertex == False:
         length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
         # If index finger is not on vertex, clip to create new clay
@@ -276,13 +292,36 @@ def zeroMode(lmList, img):
                     middleFinger.x = WIDTH - 1
                 if middleFinger.y >= HEIGHT:
                     middleFinger.y = HEIGHT - 1
-                clay_new = Clay(middleFinger.x, middleFinger.y, pink)
+
+                clay_new = Clay(middleFinger.x, middleFinger.y, colorTable[colorIndex])
                 clays.append(clay_new)
         elif zeroModePress == True:  # Works like release
             zeroModePress = False
         else:
-            cv2.circle(img, (middleFinger.x, middleFinger.y), 10, pink, cv2.FILLED)
+            cv2.circle(img, (middleFinger.x, middleFinger.y), 10, colorTable[colorIndex], cv2.FILLED)
 
+def secondMode(lmList, img): # change color by clipping
+    indexFinger = FingerTip(lmList[8][0], lmList[8][1])
+    middleFinger = FingerTip(lmList[12][0], lmList[12][1])
+
+    length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
+    global colorIndex
+    global secondModeisClip
+    global colorTable
+
+    if secondModeisClip == 0:
+        if length < 25:
+            secondModeisClip = 1
+    elif secondModeisClip == 1:
+        colorIndex += 1
+        if colorIndex >= len(colorTable):
+            colorIndex = 0
+        secondModeisClip = 2
+    else:
+        if length > 30:
+            secondModeisClip = 0
+    #print("isClip: {}, Index: {}".format(secondModeisClip, colorIndex))
+    cv2.circle(img, (middleFinger.x, middleFinger.y), 10, colorTable[colorIndex], cv2.FILLED)
 
 
 if __name__ == '__main__':
