@@ -66,7 +66,10 @@ def drawUI(img):
 
 def get_frame(cap):
     success, img = cap.read() # get the frame from webcam
+    img = cv2.flip(img, 1)
+
     fingers = [0,0,0,0,0]
+
     hands, img = detector.findHands(img)
     
     drawUI(img)
@@ -192,6 +195,10 @@ if __name__ == '__main__':
     selection = -1
 
     while True:
+        if keyboard.is_pressed("q"):
+            print("q is pressed")
+            # Key was pressed
+            break
         get_frame(cap)
-            
+    cap.release()
     cv2.destroyAllWindows()
