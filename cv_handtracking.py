@@ -21,7 +21,6 @@ class Btn: # the UI button
     def draw(self, background):
         cv2.ellipse(background, (self.x, self.y), (self.radius, self.radius), 0, 0, 360, self.color, -1)
 
-
 class FingerTip: # the position of the finger tip (thumb, index_finger, middle_finger, ring_finger, pinky)
     def __init__(self, x, y):
         self.x = x
@@ -29,35 +28,42 @@ class FingerTip: # the position of the finger tip (thumb, index_finger, middle_f
         
         
 class Clay:
-    def __init__(self, x, y, coords, color):
+    def __init__(self, x, y, color):
         self.x = x
         self.y = y
         self.radius = 40
-        self.coords = coords
+        self.coords = []
         self.color = color
-    def draw(self, background, coords, color):
-        if coords == []:
-            return
-        points = np.array( [[200, 250]] )
-        for coord in coords:
-            points = np.append(points, [[int(coord[0]), int(coord[1])]], 0 )        
+    def draw(self, background, color):
+        """
+        rightPoint = (self.x + self.radius if self.x + self.radius <= WIDTH - 1 else WIDTH - 1, self.y)
+        leftPoint = (self.x - self.radius if self.x - self.radius > 0 else 0, self.y)
+        topPoint = (self.x , self.y - self.radius if self.y - self.radius > 0 else 0)
+        buttomPoint = (self.x , self.y + self.radius if self.y + self.radius <= HEIGHT - 1 else HEIGHT - 1)
+        """
+        if self.coords == []:
+            self.coords = generate_points(self)
+        points = np.array(self.coords)
+        #for coord in self.coords:
+        #    points = np.append(points, [[int(coord[0]), int(coord[1])]], 0 )
         cv2.fillConvexPoly(background, points, color)
         
 
 # parameter
 WIDTH, HEIGHT = 640, 360 # 1280, 720
 selection = -1
-select_mode = -1
+select_mode = 0
 counter = 0
 object_display = False
-
+clays = []
 
 btn0 = Btn(120, 50)
 btn1 = Btn(200, 50)
 btn2 = Btn(280, 50)
 btn3 = Btn(360, 50)
 btn_list = [btn0, btn1, btn2, btn3]
-clay = Clay(200, 250, [], pink)
+#clay = Clay(200, 250, [], pink)
+zeroModePress = False
 
 def drawUI(img):
     for btn in btn_list:
@@ -71,7 +77,7 @@ def get_frame(cap):
     fingers = [0,0,0,0,0]
 
     hands, img = detector.findHands(img)
-    
+
     drawUI(img)
     
     global object_display
@@ -90,9 +96,11 @@ def get_frame(cap):
         # print(len(data))
         select_mode = detect_click_btn(img, data, fingers)
         if select_mode == 0:
-            clay.coords = generate_points(clay)
+            #clay.coords = generate_points(clay)
             object_display = True
             showButtonNumber(btn0, "0", img)
+            zeroMode(lmList, img)
+
         elif select_mode == 1:
             candle(img, data, fingers)
             new_img = spotlight(img, data, fingers)
@@ -106,7 +114,8 @@ def get_frame(cap):
 
         
     if object_display == True:
-        clay.draw(img, clay.coords, clay.color)
+        for clay in clays:
+            clay.draw(img, clay.color)
     
     cv2.imshow("Image", img)
     cv2.waitKey(1)
@@ -142,17 +151,17 @@ def detect_click_btn(img, data, fingers):
         selection = 3
         # print("selection = 3")
     else: # QUIT SELECTON
-        selection = -1
+        # selection = -1 ##comment out in order to show button number
         counter = 0
         # print("quit selection")
         
     if counter > 0: 
         counter += 1
-        print (counter, selection)
+        print(counter, selection)
         cv2.ellipse(img, (btn_list[selection].x, btn_list[selection].y), (btn_list[selection].radius, btn_list[selection].radius), 0, 0, counter * counterspeed, (0, 255, 0), 10)
         if counter * counterspeed >= 360:
             select_mode = selection
-            print ("enter mode " + str(selection))
+            print("enter mode " + str(selection))
             counter = 0
             selection = -1
     return select_mode
@@ -162,8 +171,8 @@ def generate_points(clay):
     coords = []
     for i in range(0,60):
         theta = math.radians(6 * i)
-        x = clay.x + math.sin(theta) * clay.radius
-        y = clay.y + math.cos(theta) * clay.radius
+        x = int(clay.x + math.sin(theta) * clay.radius)
+        y = int(clay.y + math.cos(theta) * clay.radius)
         coords.append([x, y])
     return coords
 
@@ -210,6 +219,25 @@ def twoFingerMode(lmList, img):
 
 def showButtonNumber(Btn, number, img):
     cv2.putText(img, number, (Btn.x -10, Btn.y + 10), cv2.FONT_HERSHEY_PLAIN, 2, (50, 50, 50), 3)
+
+def zeroMode(lmList, img):
+    indexFinger = FingerTip(lmList[8][0], lmList[8][1])
+    middleFinger = FingerTip(lmList[12][0], lmList[12][1])
+    length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
+    global zeroModePress
+    if length < 20:
+        if zeroModePress == False:
+            zeroModePress = True
+            if middleFinger.x >= WIDTH:
+                middleFinger.x = WIDTH - 1
+            if middleFinger.y >= HEIGHT:
+                middleFinger.y = HEIGHT - 1
+            clay_new = Clay(middleFinger.x, middleFinger.y, pink)
+            clays.append(clay_new)
+            print("Press")
+    elif zeroModePress == True:
+        zeroModePress = False
+        print("Release")
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0) # device number = 0
