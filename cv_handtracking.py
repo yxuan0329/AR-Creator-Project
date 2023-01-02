@@ -32,7 +32,7 @@ class Clay:
         self.x = x
         self.y = y
         self.radius = 40
-        self.coords = []
+        self.coords = generate_points(self)
         self.color = color
     def draw(self, background, color):
         """
@@ -47,7 +47,8 @@ class Clay:
         #for coord in self.coords:
         #    points = np.append(points, [[int(coord[0]), int(coord[1])]], 0 )
         cv2.fillConvexPoly(background, points, color)
-        
+
+
 
 # parameter
 WIDTH, HEIGHT = 640, 360 # 1280, 720
@@ -63,7 +64,9 @@ btn2 = Btn(280, 50)
 btn3 = Btn(360, 50)
 btn_list = [btn0, btn1, btn2, btn3]
 #clay = Clay(200, 250, [], pink)
+
 zeroModePress = False
+zerModeDragPoint = []
 
 def drawUI(img):
     for btn in btn_list:
@@ -81,6 +84,7 @@ def get_frame(cap):
     drawUI(img)
     
     global object_display
+    global zerModeDragPoint
     data = []
     lmList = []
     # gray_img = spotlight(img, data, fingers)
@@ -116,7 +120,17 @@ def get_frame(cap):
     if object_display == True:
         for clay in clays:
             clay.draw(img, clay.color)
-    
+            #global zeroModeDragPoint
+            #print(zerModeDragPoint)
+            print(zerModeDragPoint)
+
+        if zerModeDragPoint != []:
+            clayID = zerModeDragPoint[0]
+            pointID = zerModeDragPoint[1]
+            cv2.circle(img, clays[clayID].coords[pointID], 5, (255, 0, 0), cv2.FILLED)
+
+        #for point in zerModeDragPoint:
+
     cv2.imshow("Image", img)
     cv2.waitKey(1)
 
@@ -225,6 +239,9 @@ def zeroMode(lmList, img):
     middleFinger = FingerTip(lmList[12][0], lmList[12][1])
     length, _ = detector.findDistance((indexFinger.x, indexFinger.y), (middleFinger.x, middleFinger.y))
     global zeroModePress
+    global zeroModeDragPoint
+    zeroModeDragPoint = -1
+
     if length < 20:
         if zeroModePress == False:
             zeroModePress = True
@@ -234,11 +251,21 @@ def zeroMode(lmList, img):
                 middleFinger.y = HEIGHT - 1
             clay_new = Clay(middleFinger.x, middleFinger.y, pink)
             clays.append(clay_new)
-            print("Press")
     elif zeroModePress == True:
         zeroModePress = False
-        print("Release")
+    else :
+        cv2.circle(img, (middleFinger.x, middleFinger.y), 10, pink, cv2.FILLED)
 
+    clayID = 0
+    for clay in clays:
+        for i in range(0, 60, 10):
+            point_center = clay.coords[i]
+            length, _ = detector.findDistance(point_center, (indexFinger.x, indexFinger.y))
+            if length < 25:
+                global  zerModeDragPoint
+                zerModeDragPoint = [clayID, i]
+                #cv2.circle(img, point_center, 5, (255, 0, 0), cv2.FILLED)
+        clayID += 1
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0) # device number = 0
     cap.set(3, WIDTH) # width 
