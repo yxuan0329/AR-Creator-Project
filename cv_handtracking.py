@@ -14,6 +14,7 @@ green = (0, 255, 0)
 blue = (255, 0, 0)
 purple = (128, 0, 128)
 pink = (203, 192, 255)
+black = (50, 50, 50)
 colorTable =[red, orange, yellow, light_green, green, blue, purple, pink]
 
 class Btn: # the UI button
@@ -87,6 +88,10 @@ secondModeisClip = 0 # 0: not clip / 1: clipping / 2: release
 def drawUI(img):
     for btn in btn_list:
         btn.draw(img)
+    showButtonNumber(btn0, "0", black, img)
+    showButtonNumber(btn1, "1", black, img)
+    showButtonNumber(btn2, "2", black, img)
+    showButtonNumber(btn3, "3", black, img)
     
 
 def get_frame(cap):
@@ -109,7 +114,7 @@ def get_frame(cap):
     for hand in hands:        
         lmList = hand['lmList']
         for lm in lmList:
-            data.extend([lm[0], lm[1], lm[2]]) # reverse y-dir
+            data.extend([lm[0], lm[1], lm[2]])
                 
         fingers = detector.fingersUp(hand) # [1, 1, 1, 1, 1] if fingers up
         #print(fingers)
@@ -118,20 +123,20 @@ def get_frame(cap):
         select_mode = detect_click_btn(img, data, fingers)
         if select_mode == 0:
             object_display = True
-            showButtonNumber(btn0, "0", img)
+            showButtonNumber(btn0, "0", colorTable[0], img)
             zeroMode(lmList, img)
 
         elif select_mode == 1:
             candle(img, data, fingers)
             new_img = spotlight(img, data, fingers)
             img = new_img
-            showButtonNumber(btn1, "1", img)
+            showButtonNumber(btn1, "1", colorTable[0], img)
         elif select_mode == 2:
             #twoFingerMode(lmList, img)
             secondMode(lmList, img)
-            showButtonNumber(btn2, "2", img)
+            showButtonNumber(btn2, "2", colorTable[0], img)
         elif select_mode == 3:
-            showButtonNumber(btn3, "3", img)
+            showButtonNumber(btn3, "3", colorTable[0], img)
             thirdMode(lmList, img)
         
     if object_display == True:
@@ -247,8 +252,8 @@ def twoFingerMode(lmList, img):
         cv2.circle(img, (middleFinger.x, middleFinger.y), 10, (255,0,0), cv2.FILLED)
         return click_pos
 
-def showButtonNumber(Btn, number, img):
-    cv2.putText(img, number, (Btn.x -10, Btn.y + 10), cv2.FONT_HERSHEY_PLAIN, 2, (50, 50, 50), 3)
+def showButtonNumber(Btn, number, color, img):
+    cv2.putText(img, number, (Btn.x -10, Btn.y + 10), cv2.FONT_HERSHEY_PLAIN, 2, color, 3)
 
 def zeroMode(lmList, img):
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
