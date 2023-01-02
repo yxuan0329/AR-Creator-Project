@@ -14,6 +14,7 @@ green = (0, 255, 0)
 blue = (255, 0, 0)
 purple = (128, 0, 128)
 pink = (203, 192, 255)
+black = (50, 50, 50)
 colorTable =[red, orange, yellow, light_green, green, blue, purple, pink]
 
 class Btn: # the UI button
@@ -51,10 +52,7 @@ class Clay:
         if self.coords == []:
             self.coords = generate_points(self)
         points = np.array(self.coords)
-        #for coord in self.coords:
-        #    points = np.append(points, [[int(coord[0]), int(coord[1])]], 0 )
         cv2.fillConvexPoly(background, points, self.color)
-
 
 
 # parameter
@@ -63,6 +61,7 @@ selection = -1
 select_mode = 0
 counter = 0
 object_display = False
+start_dist = 0
 clays = []
 
 btn0 = Btn(120, 50)
@@ -81,6 +80,10 @@ secondModeisClip = 0 # 0: not clip / 1: clipping / 2: release
 def drawUI(img):
     for btn in btn_list:
         btn.draw(img)
+    showButtonNumber(btn0, "0", black, img)
+    showButtonNumber(btn1, "1", black, img)
+    showButtonNumber(btn2, "2", black, img)
+    showButtonNumber(btn3, "3", black, img)
     
 
 def get_frame(cap):
@@ -97,13 +100,12 @@ def get_frame(cap):
     global secondModeDragPoint
     data = []
     lmList = []
-    # gray_img = spotlight(img, data, fingers)
     
     # landmark values - (x, y, z) * 21
     for hand in hands:        
         lmList = hand['lmList']
         for lm in lmList:
-            data.extend([lm[0], lm[1], lm[2]]) # reverse y-dir
+            data.extend([lm[0], lm[1], lm[2]])
                 
         fingers = detector.fingersUp(hand) # [1, 1, 1, 1, 1] if fingers up
         #print(fingers)
@@ -112,25 +114,33 @@ def get_frame(cap):
         select_mode = detect_click_btn(img, data, fingers)
         if select_mode == 0:
             object_display = True
-            showButtonNumber(btn0, "0", img)
+            showButtonNumber(btn0, "0", colorTable[0], img)
             zeroMode(lmList, img)
 
         elif select_mode == 1:
             candle(img, data, fingers)
             new_img = spotlight(img, data, fingers)
             img = new_img
-            showButtonNumber(btn1, "1", img)
+            showButtonNumber(btn1, "1", colorTable[0], img)
         elif select_mode == 2:
             #twoFingerMode(lmList, img)
             secondMode(lmList, img)
-            showButtonNumber(btn2, "2", img)
+            showButtonNumber(btn2, "2", colorTable[0], img)
         elif select_mode == 3:
-            showButtonNumber(btn3, "3", img)
+            showButtonNumber(btn3, "3", colorTable[0], img)
             thirdMode(lmList, img)
         
     if object_display == True:
         for clay in clays:
             clay.draw(img, clay.color)
+            
+            if len(hands) == 2 and detector.fingersUp(hands[0]) == [1,1,0,0,0] and detector.fingersUp(hands[1]) == [1,1,0,0,0] :
+                scale_obj(hands, clay)
+            else:
+                global start_dist
+                start_dist = 0
+            
+
 
         if secondModeDragPoint != []:
             clayID = secondModeDragPoint[0]
@@ -166,26 +176,21 @@ def detect_click_btn(img, data, fingers):
         if selection != 0: # ENTER SELECTION 0
             counter = 1
         selection = 0
-        # print("selection = 0")
     elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[1]) <= btn_list[1].radius :
         if selection != 1: # ENTER SELECTION 1
             counter = 1
         selection = 1
-        # print("selection = 1")
     elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[2]) <= btn_list[2].radius : 
         if selection != 2: # ENTER SELECTION 2
             counter = 1
         selection = 2
-        # print("selection = 2")
     elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[3]) <= btn_list[3].radius : 
         if selection != 3: # ENTER SELECTION 3
             counter = 1
         selection = 3
-        # print("selection = 3")
     else: # QUIT SELECTON
         # selection = -1 ##comment out in order to show button number
         counter = 0
-        # print("quit selection")
         
     if counter > 0: 
         counter += 1
@@ -207,6 +212,25 @@ def generate_points(clay):
         y = int(clay.y + math.cos(theta) * clay.radius)
         coords.append([x, y])
     return coords
+
+def scale_obj(hands, clay):
+    global start_dist
+    scale_speed = 0.1
+    lmList1 = hands[0]["lmList"]
+    lmList2 = hands[1]["lmList"]
+    index_finger_1 = FingerTip(lmList1[8][0], lmList1[8][1])
+    index_finger_2 = FingerTip(lmList2[8][0], lmList2[8][1])
+                    
+    if start_dist == 0:
+        length = distance(index_finger_1, index_finger_2)
+        start_dist = length
+    end_dist = distance(index_finger_1, index_finger_2)
+    scale = float((end_dist - start_dist) // 40)
+    if clay.x > min(index_finger_1.x, index_finger_2.x) and clay.x < max(index_finger_1.x, index_finger_2.x):
+        for coord in clay.coords:
+            coord[0] = math.ceil((coord[0] - clay.x) * scale * scale_speed + coord[0])
+            coord[1] = math.ceil((coord[1] - clay.y) * scale * scale_speed + coord[1])
+
 
 def candle(img, data, fingers):
     if fingers == [1, 0, 0, 0, 0]:
@@ -249,8 +273,8 @@ def twoFingerMode(lmList, img):
         cv2.circle(img, (middleFinger.x, middleFinger.y), 10, (255,0,0), cv2.FILLED)
         return click_pos
 
-def showButtonNumber(Btn, number, img):
-    cv2.putText(img, number, (Btn.x -10, Btn.y + 10), cv2.FONT_HERSHEY_PLAIN, 2, (50, 50, 50), 3)
+def showButtonNumber(Btn, number, color, img):
+    cv2.putText(img, number, (Btn.x -10, Btn.y + 10), cv2.FONT_HERSHEY_PLAIN, 2, color, 3)
 
 def zeroMode(lmList, img):
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
