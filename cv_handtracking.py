@@ -58,10 +58,7 @@ class Clay:
         if self.coords == []:
             self.coords = generate_points(self)
         points = np.array(self.coords)
-        #for coord in self.coords:
-        #    points = np.append(points, [[int(coord[0]), int(coord[1])]], 0 )
         cv2.fillConvexPoly(background, points, self.color)
-
 
 
 # parameter
@@ -70,6 +67,7 @@ selection = -1
 select_mode = 0
 counter = 0
 object_display = False
+start_dist = 0
 clays = []
 
 btn0 = Btn(120, 50)
@@ -108,7 +106,6 @@ def get_frame(cap):
     global zeroModeDragPoint
     data = []
     lmList = []
-    # gray_img = spotlight(img, data, fingers)
     
     # landmark values - (x, y, z) * 21
     for hand in hands:        
@@ -142,6 +139,13 @@ def get_frame(cap):
     if object_display == True:
         for clay in clays:
             clay.draw(img, clay.color)
+            
+            if len(hands) == 2 and detector.fingersUp(hands[0]) == [1,1,0,0,0] and detector.fingersUp(hands[1]) == [1,1,0,0,0] :
+                    scale_obj(hands, clay)
+            else:
+                global start_dist
+                start_dist = 0
+            
 
         if zeroModeDragPoint != []:
             clayID = zeroModeDragPoint[0]
@@ -151,7 +155,7 @@ def get_frame(cap):
             else :
                 color = (255, 0, 0)
             cv2.circle(img, clays[clayID].coords[pointID], 5, color, cv2.FILLED)
-
+            
     cv2.imshow("Image", img)
     cv2.waitKey(1)
 
@@ -169,26 +173,21 @@ def detect_click_btn(img, data, fingers):
         if selection != 0: # ENTER SELECTION 0
             counter = 1
         selection = 0
-        # print("selection = 0")
     elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[1]) <= btn_list[1].radius :
         if selection != 1: # ENTER SELECTION 1
             counter = 1
         selection = 1
-        # print("selection = 1")
     elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[2]) <= btn_list[2].radius : 
         if selection != 2: # ENTER SELECTION 2
             counter = 1
         selection = 2
-        # print("selection = 2")
     elif fingers == [0, 1, 0, 0, 0] and distance(index_finger_tip, btn_list[3]) <= btn_list[3].radius : 
         if selection != 3: # ENTER SELECTION 3
             counter = 1
         selection = 3
-        # print("selection = 3")
     else: # QUIT SELECTON
         # selection = -1 ##comment out in order to show button number
         counter = 0
-        # print("quit selection")
         
     if counter > 0: 
         counter += 1
@@ -210,6 +209,25 @@ def generate_points(clay):
         y = int(clay.y + math.cos(theta) * clay.radius)
         coords.append([x, y])
     return coords
+
+def scale_obj(hands, clay):
+    global start_dist
+    scale_speed = 0.1
+    lmList1 = hands[0]["lmList"]
+    lmList2 = hands[1]["lmList"]
+    index_finger_1 = FingerTip(lmList1[8][0], lmList1[8][1])
+    index_finger_2 = FingerTip(lmList2[8][0], lmList2[8][1])
+                    
+    if start_dist == 0:
+        length = distance(index_finger_1, index_finger_2)
+        start_dist = length
+    end_dist = distance(index_finger_1, index_finger_2)
+    scale = float((end_dist - start_dist) // 40)
+    if clay.x > min(index_finger_1.x, index_finger_2.x) and clay.x < max(index_finger_1.x, index_finger_2.x):
+        for coord in clay.coords:
+            coord[0] = math.ceil((coord[0] - clay.x) * scale * scale_speed + coord[0])
+            coord[1] = math.ceil((coord[1] - clay.y) * scale * scale_speed + coord[1])
+
 
 def candle(img, data, fingers):
     if fingers == [1, 0, 0, 0, 0]:
