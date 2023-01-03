@@ -62,7 +62,9 @@ select_mode = 0
 counter = 0
 object_display = False
 start_dist = 0
+filter_mode = -1
 clays = []
+origin_img = None
 
 btn0 = Btn(120, 50)
 btn1 = Btn(200, 50)
@@ -89,6 +91,7 @@ def drawUI(img):
     
 
 def get_frame(cap):
+    global filter_mode
     success, img = cap.read() # get the frame from webcam
     img = cv2.flip(img, 1)
 
@@ -98,10 +101,51 @@ def get_frame(cap):
 
     drawUI(img)
     
-    global object_display
+    global object_display, origin_img
     global secondModeDragPoint
     data = []
     lmList = []
+    origin_img = img
+    
+    if keyboard.is_pressed("r"):
+        clays.clear()
+        object_display = False
+    
+    if filter_mode == 1:
+        cv2.applyColorMap(img, cv2.COLORMAP_OCEAN)
+    elif filter_mode == 2:
+        cv2.applyColorMap(img, cv2.COLORMAP_DEEPGREEN)
+
+    
+    if object_display == True:
+        for clay in clays:
+            clay.draw(img, clay.color)
+            
+            if len(hands) == 2 and detector.fingersUp(hands[0]) == [1,1,0,0,0] and detector.fingersUp(hands[1]) == [1,1,0,0,0] :
+                scale_obj(hands, clay)
+            else:
+                global start_dist
+                start_dist = 0
+            
+
+        
+        if secondModeDragPoint != []:
+            clayID = secondModeDragPoint[0]
+            pointID = secondModeDragPoint[1]
+            if pointID == -1:
+                if secondModeDragPoint[2]:
+                    color = (50, 50, 50)
+                else:
+                    color = (255, 255, 255)
+                cv2.circle(img, (clays[clayID].x, clays[clayID].y), 5, color, cv2.FILLED)
+            else:
+                global colorIndex
+                if secondModeDragPoint[2]:
+                    color = (0, 0, 255) if clay.color != (0, 0, 255) else (0, 255, 255)
+                else:
+                    color = (255, 0, 0) if clay.color != (255, 0, 0) else (0, 255, 0)
+                cv2.circle(img, clays[clayID].coords[pointID], 5, color, cv2.FILLED)
+        
     
     # landmark values - (x, y, z) * 21
     for hand in hands:        
@@ -120,7 +164,6 @@ def get_frame(cap):
             zeroMode(lmList, img)
 
         elif select_mode == 1:
-            candle(img, data, fingers)
             img = spotlight(img, data, fingers)
             showButtonNumber(btn1, "1", colorTable[0], img)
         elif select_mode == 2:
@@ -132,8 +175,8 @@ def get_frame(cap):
             thirdMode(lmList, img)
         elif select_mode == 4:
             showButtonNumber(btn4, "4", colorTable[0], img)
-            img = change_filter(img, fingers)
-        
+            img = change_filter(img, origin_img, fingers)
+    """    
     if object_display == True:
         for clay in clays:
             clay.draw(img, clay.color)
@@ -145,7 +188,7 @@ def get_frame(cap):
                 start_dist = 0
             
 
-
+        
         if secondModeDragPoint != []:
             clayID = secondModeDragPoint[0]
             pointID = secondModeDragPoint[1]
@@ -162,7 +205,7 @@ def get_frame(cap):
                 else:
                     color = (255, 0, 0) if clay.color != (255, 0, 0) else (0, 255, 0)
                 cv2.circle(img, clays[clayID].coords[pointID], 5, color, cv2.FILLED)
-
+        """
     cv2.imshow("Image", img)
     cv2.waitKey(1)
 
@@ -222,6 +265,7 @@ def generate_points(clay):
     return coords
 
 def scale_obj(hands, clay):
+    """ scale objects if their x-coords are between the two index finger tip"""
     global start_dist
     scale_speed = 0.1
     lmList1 = hands[0]["lmList"]
@@ -237,13 +281,7 @@ def scale_obj(hands, clay):
     if clay.x > min(index_finger_1.x, index_finger_2.x) and clay.x < max(index_finger_1.x, index_finger_2.x):
         for coord in clay.coords:
             coord[0] = math.ceil((coord[0] - clay.x) * scale * scale_speed + coord[0])
-            coord[1] = math.ceil((coord[1] - clay.y) * scale * scale_speed + coord[1])
-
-
-def candle(img, data, fingers):
-    if fingers == [1, 0, 0, 0, 0]:
-        thumb = FingerTip(int(data[12]), int(data[13]))
-        cv2.circle(img, (thumb.x, thumb.y), 10, orange, -1)
+            coord[1] = math.ceil((coord[1] - clay.y) * scale * scale_speed + coord[1])       
    
 def in_circle(a, b, radius):
     """ return true if the pixel is inside the circle boundary """
@@ -258,6 +296,7 @@ def spotlight(img, data, fingers):
     if fingers == [1, 0, 0, 0, 0]:
         red_img = cv2.applyColorMap(img, cv2.COLORMAP_HOT)
         thumb = FingerTip(int(data[12]), int(data[13]))
+        cv2.circle(img, (thumb.x, thumb.y), 10, orange, -1)
         for j in range(0, h):
             for i in range(0, w):
                 pixel = FingerTip(i, j)
@@ -267,12 +306,19 @@ def spotlight(img, data, fingers):
                     img[j][i] = red_img[j][i]
     return img
 
-def change_filter(img, fingers):
-    if fingers == [0, 1, 1, 0, 0]:
-        img = cv2.applyColorMap(img, cv2.COLORMAP_OCEAN)
-    elif fingers == [0, 1, 1, 1, 0]:
-         img = cv2.applyColorMap(img, cv2.COLORMAP_DEEPGREEN)
-    return img
+def change_filter(img, origin_img, fingers):
+    global filter_mode
+    new_img = img
+    if fingers == [0, 1, 1, 0, 0] or filter_mode == 1:
+        filter_mode = 1
+        new_img = cv2.applyColorMap(img, cv2.COLORMAP_OCEAN)
+    elif fingers == [0, 1, 1, 1, 0] or filter_mode == 2:
+        filter_mode = 2
+        new_img = cv2.applyColorMap(img, cv2.COLORMAP_DEEPGREEN)
+    else:  
+        filter_mode = -1
+        new_img = origin_img
+    return new_img
 
 def twoFingerMode(lmList, img):
     indexFinger = FingerTip(lmList[8][0], lmList[8][1])
