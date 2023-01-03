@@ -62,7 +62,7 @@ select_mode = 0
 counter = 0
 object_display = False
 start_dist = 0
-filter_mode = -1
+filter_mode = 0
 clays = []
 origin_img = None
 
@@ -77,7 +77,7 @@ zeroModePress = False
 secondModePointToVertex = False
 secondModeDragPoint = []
 
-colorIndex = 0
+colorIndex = 4
 secondModeisClip = 0 # 0: not clip / 1: clipping / 2: release
 
 def drawUI(img):
@@ -113,8 +113,6 @@ def get_frame(cap):
     
     if filter_mode == 1:
         cv2.applyColorMap(img, cv2.COLORMAP_OCEAN)
-    elif filter_mode == 2:
-        cv2.applyColorMap(img, cv2.COLORMAP_DEEPGREEN)
 
     
     if object_display == True:
@@ -134,16 +132,16 @@ def get_frame(cap):
             pointID = secondModeDragPoint[1]
             if pointID == -1:
                 if secondModeDragPoint[2]:
-                    color = (50, 50, 50)
+                    color = black
                 else:
                     color = (255, 255, 255)
                 cv2.circle(img, (clays[clayID].x, clays[clayID].y), 5, color, cv2.FILLED)
             else:
                 global colorIndex
                 if secondModeDragPoint[2]:
-                    color = (0, 0, 255) if clay.color != (0, 0, 255) else (0, 255, 255)
+                    color = (0, 0, 255) if clays[clayID].color != (0, 0, 255) else (0, 255, 255)
                 else:
-                    color = (255, 0, 0) if clay.color != (255, 0, 0) else (0, 255, 0)
+                    color = (255, 0, 0) if clays[clayID].color != (255, 0, 0) else (0, 255, 0)
                 cv2.circle(img, clays[clayID].coords[pointID], 5, color, cv2.FILLED)
         
     
@@ -290,6 +288,7 @@ def in_circle(a, b, radius):
     
 
 def spotlight(img, data, fingers):
+    """ show red spotlight on the thumb in mode 1"""
     h, w, _ = img.shape
     radius = 50
     
@@ -307,14 +306,12 @@ def spotlight(img, data, fingers):
     return img
 
 def change_filter(img, origin_img, fingers):
+    """ change blue filter in mode 4"""
     global filter_mode
     new_img = img
     if fingers == [0, 1, 1, 0, 0] or filter_mode == 1:
         filter_mode = 1
-        new_img = cv2.applyColorMap(img, cv2.COLORMAP_OCEAN)
-    elif fingers == [0, 1, 1, 1, 0] or filter_mode == 2:
-        filter_mode = 2
-        new_img = cv2.applyColorMap(img, cv2.COLORMAP_DEEPGREEN)
+        new_img = cv2.applyColorMap(origin_img, cv2.COLORMAP_OCEAN)
     else:  
         filter_mode = -1
         new_img = origin_img
@@ -446,7 +443,6 @@ if __name__ == '__main__':
     cap.set(4, HEIGHT) # height
     
     detector = HandDetector(maxHands=2, detectionCon=0.8) # hand detect
-    selection = -1
 
     while True:
         if keyboard.is_pressed("q"):
