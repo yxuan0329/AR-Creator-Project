@@ -1,4 +1,4 @@
-# AR Creator: An Interactive Clay based on Hand Gestures in Augmented Reality
+# Interactive Clay based on Hand Gestures in Augmented Reality
 This repository is a group project of Computer Graphics, 2022 Fall in NYCU CS.
 
 ## Environment
